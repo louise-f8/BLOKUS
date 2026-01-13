@@ -1,5 +1,16 @@
 import socket
 import pickle
+import time
+
+
+def calculer_score(pieces_restantes, fini_par_unite):
+    malus = 0
+    for p in pieces_restantes:
+        malus -= len(p)
+    if len(pieces_restantes) == 0:
+        return 20 if fini_par_unite else 15
+    return malus
+
 
 def main_serveur():
     host = '0.0.0.0'
@@ -9,89 +20,90 @@ def main_serveur():
     server_socket.bind((host, port))
     server_socket.listen(4)
 
+    print("--- Serveur Blokus 4 Joueurs Lancé ---")
     clients = []
     couleurs = ["red", "blue", "green", "yellow"]
-    joueurs_en_jeu = [True, True, True, True]
-    
-    print(f"Serveur lancé sur le port {port}. En attente des joueurs...")
 
-    try:
-        # 1. Connexion des 4 joueurs
-        while len(clients) < 4:
-            conn, addr = server_socket.accept()
-            idx = len(clients)
-            print(f"Joueur {idx + 1} ({couleurs[idx]}) connecté depuis {addr}")
-            conn.send(pickle.dumps(couleurs[idx])) # Envoi de sa couleur
-            clients.append(conn)
+    # Connexion des 4 joueurs
+    for i in range(4):
+        conn, addr = server_socket.accept()
+        print(f"Joueur {i + 1} ({couleurs[i]}) connecté.")
+        conn.send(pickle.dumps(couleurs[i]))
+        clients.append(conn)
 
-        grille = [['_'] * 20 for _ in range(20)]
-        tour = 0
-        en_cours = True
+    grille = [['_'] * 20 for _ in range(20)]
+    bloques = [False] * 4
+    inventaires = {c: [] for c in couleurs}
+    unite_final = {c: False for c in couleurs}
+    tour = 0
 
-        while en_cours:
-            # Vérifier s'il reste des joueurs actifs
-            if joueurs_en_jeu.count(True) == 0:
-                print("Plus de joueurs actifs. Fin.")
-                break
+    while False in bloques:
+        if bloques[tour]:
+            tour = (tour + 1) % 4
+            continue
 
-            # Passer le tour si le joueur actuel est bloqué
-            if not joueurs_en_jeu[tour]:
-                tour = (tour + 1) % 4
+        current_color = couleurs[tour]
+
+        # 1. Diffuser l'état à TOUS les joueurs
+        for i, conn in enumerate(clients):
+            try:
+                conn.send(pickle.dumps({
+                    "grille": grille,
+                    "actif": (i == tour),
+                    "coul_actuelle": current_color,
+                    "type": "TOUR"
+                }))
+            except:
+                bloques[i] = True
+
+        # 2. Recevoir l'action du joueur actif
+        try:
+            data = clients[tour].recv(8192)
+            if not data: break
+            resultat = pickle.loads(data)
+
+            if resultat == "CHANGER":
                 continue
 
-            current_conn = clients[tour]
-            current_color = couleurs[tour]
+            if resultat == "BLOQUER":
+                print(f"{current_color} est bloqué.")
+                bloques[tour] = True
+                # Demande l'inventaire final pour le score
+                clients[tour].send(pickle.dumps("REQ_PIECES"))
+                inventaires[current_color] = pickle.loads(clients[tour].recv(8192))
 
-            # DIFFUSION de l'état à tous les clients encore connectés
-            etat = {
-                "grille": grille,
-                "actif": False,
-                "couleur_tour": current_color
-            }
+            elif isinstance(resultat, dict) and resultat.get("status") == "FINI":
+                print(f"{current_color} a TOUT posé !")
+                bloques[tour] = True
+                unite_final[current_color] = resultat["unite"]
+                inventaires[current_color] = []
 
-            for i, conn in enumerate(clients):
-                try:
-                    etat["actif"] = (i == tour)
-                    conn.send(pickle.dumps(etat))
-                except:
-                    joueurs_en_jeu[i] = False
+            else:  # Coordonnées de placement
+                for x, y in resultat:
+                    grille[y][x] = current_color
 
-            # RÉCEPTION de l'action du joueur dont c'est le tour
-            try:
-                data = current_conn.recv(4096)
-                if not data:
-                    raise Exception("Déconnexion")
+                # Mise à jour de l'inventaire pour le score
+                clients[tour].send(pickle.dumps("REQ_PIECES"))
+                inventaires[current_color] = pickle.loads(clients[tour].recv(8192))
 
-                resultat = pickle.loads(data)
+            tour = (tour + 1) % 4
+        except:
+            bloques[tour] = True
+            break
 
-                if resultat == "FINI":
-                    print(f"VICTOIRE : {current_color} a gagné !")
-                    en_cours = False
-                elif resultat == "BLOQUER":
-                    print(f"{current_color} est bloqué.")
-                    joueurs_en_jeu[tour] = False
-                    tour = (tour + 1) % 4
-                else: 
-                    # On suppose que 'resultat' est une liste de coordonnées [(x,y), ...]
-                    for x, y in resultat:
-                        grille[y][x] = current_color
-                    tour = (tour + 1) % 4
+    # --- Scores finaux ---
+    res_scores = [calculer_score(inventaires[c], unite_final[c]) for c in couleurs]
+    bilan = "FIN DE PARTIE\n" + " | ".join([f"{couleurs[i].upper()}: {res_scores[i]}" for i in range(4)])
+    print(bilan)
 
-            except Exception as e:
-                print(f"Erreur avec le joueur {current_color}: {e}")
-                joueurs_en_jeu[tour] = False
-                tour = (tour + 1) % 4
+    for c in clients:
+        try:
+            c.send(pickle.dumps({"type": "FIN", "msg": bilan}))
+        except:
+            pass
 
-    finally:
-        # Information de fin et fermeture
-        print("Fermeture du serveur...")
-        for c in clients:
-            try:
-                c.send(pickle.dumps("FIN_PARTIE"))
-                c.close()
-            except:
-                pass
-        server_socket.close()
+    server_socket.close()
+
 
 if __name__ == "__main__":
     main_serveur()
