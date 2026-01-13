@@ -9,41 +9,57 @@ def afficher_grille(grille):
     largeur=len(grille[0])
     print("    ", end="")
     for col in range(1, largeur + 1):
-        print(f"{col:<3}", end="")
+        print(f"{col:2}", end=" ")
     print()
+    # Lignes de la grille
     for i in range(hauteur):
-        print(f"{i + 1:>2}  ", end="")
+        # Numéro de ligne
+        print(f"{i + 1:2}  ", end=" ")
+
         for j in range(largeur):
-            print(f"{grille[i][j]}  ", end="")
+            print(grille[i][j], end="  ")
         print()
 
 # Rotation 90° horaire
 def rotation_90(piece):
     p = [(y, -x) for (x, y) in piece]
+
+    # Recentrer à (0,0)
     min_x = min(x for x, y in p)
     min_y = min(y for x, y in p)
+
     return [(x - min_x, y - min_y) for (x, y) in p]
 
 # Miroir horizontal
 def rotation_miroir(piece):
     p = [(-x, y) for (x, y) in piece]
+
+    # Recentrer à (0,0)
     min_x = min(x for x, y in p)
     min_y = min(y for x, y in p)
+
     return [(x - min_x, y - min_y) for (x, y) in p]
 
 # liste de toutes les orientations possible de la pièce
 def toutes_orientations(piece):
     orientations = []
+
+    # Pièce normale puis rotation de 90°
     p = piece
     for _ in range(4):
         p_triee = sorted(p)
-        if p_triee not in orientations: orientations.append(p_triee)
+        if p_triee not in orientations:
+            orientations.append(p_triee)
         p = rotation_90(p)
+
+    # Pièce en miroir vertical puis horizontal
     p = rotation_miroir(piece)
     for _ in range(4):
         p_triee = sorted(p)
-        if p_triee not in orientations: orientations.append(p_triee)
+        if p_triee not in orientations:
+            orientations.append(p_triee)
         p = rotation_90(p)
+
     return orientations
 
 # demander au joueur quelle orientation le joueur choisit
@@ -71,42 +87,108 @@ def afficher_piece(piece, joueur):
 
 def choix_piece(joueur, grille):
     choix_possibles = [f"P{i + 1}" for i in range(len(joueur.pieces))]
+
     while True:
+        # 1. On nettoie l'écran
         os.system('cls' if os.name == 'nt' else 'clear')
+
+        # 2. On affiche la grille actuelle et les pièces à côté
+        # Note : on passe la grille telle quelle (déjà formatée avec les couleurs)
         afficher_jeu_complet(grille, joueur)
+
         print(f"\nC'est au tour du joueur {joueur.color.upper()}")
-        choix = input(f"Choisissez une pièce ({choix_possibles[0]}-{choix_possibles[-1]}) : ").upper().strip()
+        choix = input(
+            f"Choisissez une pièce parmi les disponibles ({choix_possibles[0]}-{choix_possibles[-1]}) : ").upper().strip()
+
         if choix in choix_possibles:
             index = int(choix[1:]) - 1
-            return joueur.pieces[index], choix
-        input("Choix invalide ! Entrée pour réessayer.")
-
-
-def supprimer_piece(joueur, nom_piece):
-    index = int(nom_piece[1:]) - 1
-    joueur.pieces.pop(index)
-
-def placement_valide(coords, grille, joueur, est_premier, coins_dispo):
-    touche_coin = False
-    contact_diag = False
-    c_joueur = getattr(colors.fg, joueur.color) + '■' + colors.reset
-
-    for x, y in coords:
-        if not (0 <= x < len(grille[0]) and 0 <= y < len(grille)): return False
-        if grille[y][x] != '_': return False
-
-        if est_premier:
-            if (x, y) in coins_dispo: touche_coin = True
+            piece_finale = joueur.pieces[index]
+            return piece_finale, choix
         else:
-            adj = [(x-1,y), (x+1,y), (x,y-1), (x,y+1)]
-            for ax, ay in adj:
+            print("Choix invalide ! Appuyez sur Entrée pour réessayer.")
+            input()
+
+def supprimer_piece(joueur,choix):
+    if choix=='P1':
+        joueur.pieces.pop(0)
+    elif choix=='P2':
+        joueur.pieces.pop(1)
+    elif choix=='P3':
+        joueur.pieces.pop(2)
+    elif choix=='P4':
+        joueur.pieces.pop(3)
+    elif choix=='P5':
+        joueur.pieces.pop(4)
+    elif choix=='P6':
+        joueur.pieces.pop(5)
+    elif choix=='P7':
+        joueur.pieces.pop(6)
+    elif choix=='P8':
+        joueur.pieces.pop(7)
+    elif choix=='P9':
+        joueur.pieces.pop(8)
+    elif choix=='P10':
+        joueur.pieces.pop(9)
+    elif choix=='P11':
+        joueur.pieces.pop(10)
+    elif choix=='P12':
+        joueur.pieces.pop(11)
+    elif choix=='P13':
+        joueur.pieces.pop(12)
+    elif choix=='P14':
+        joueur.pieces.pop(13)
+    elif choix=='P15':
+        joueur.pieces.pop(14)
+    elif choix=='P16':
+        joueur.pieces.pop(15)
+    elif choix=='P17':
+        joueur.pieces.pop(16)
+    elif choix=='P18':
+        joueur.pieces.pop(17)
+    elif choix=='P19':
+        joueur.pieces.pop(18)
+    elif choix=='P20':
+        joueur.pieces.pop(19)
+    elif choix=='P21':
+        joueur.pieces.pop(20)
+    return joueur.pieces
+
+def placement_valide(piece_finale, grille, joueur, est_premier_tour, coins_disponibles):
+    contact_diagonale = False
+    touche_coin = False
+    couleur_joueur = getattr(colors.fg, joueur.color) + '■' + colors.reset
+
+    for x, y in piece_finale:
+        # 1. Vérifier les limites de la grille
+        if not (0 <= x < len(grille[0]) and 0 <= y < len(grille)):
+            return False
+
+        # 2. Vérifier si la case est libre
+        if grille[y][x] != '_':
+            return False
+
+        # 3. Premier tour : doit toucher un coin disponible
+        if est_premier_tour:
+            if (x, y) in coins_disponibles:
+                touche_coin = True
+
+        # 4. Tours suivants : Vérifier adjacence (interdit) et diagonale (obligatoire)
+        else:
+            adjacents = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+            for ax, ay in adjacents:
                 if 0 <= ax < len(grille[0]) and 0 <= ay < len(grille):
-                    if grille[ay][ax] == c_joueur: return False
-            diag = [(x-1,y-1), (x-1,y+1), (x+1,y-1), (x+1,y+1)]
-            for dx, dy in diag:
+                    if grille[ay][ax] == couleur_joueur:
+                        return False  # Interdit de toucher par les côtés
+
+            diagonales = [(x - 1, y - 1), (x - 1, y + 1), (x + 1, y - 1), (x + 1, y + 1)]
+            for dx, dy in diagonales:
                 if 0 <= dx < len(grille[0]) and 0 <= dy < len(grille):
-                    if grille[dy][dx] == c_joueur: contact_diag = True
-    return touche_coin if est_premier else contact_diag
+                    if grille[dy][dx] == couleur_joueur:
+                        contact_diagonale = True
+
+    if est_premier_tour:
+        return touche_coin
+    return contact_diagonale
 
 
 def fin_jeu(joueur1, joueur2):
@@ -139,114 +221,122 @@ def afficher_grille_interactive(grille, piece, position, joueur):
     afficher_grille(temp_grille)
 
 
-def afficher_grille_interactive(grille, piece, position, joueur):
-    temp_grille = copy.deepcopy(grille)
-    px0, py0 = position
-    for dx, dy in piece:
-        x, y = px0 + dx, py0 + dy
-        if 0 <= x < len(temp_grille[0]) and 0 <= y < len(temp_grille):
-            temp_grille[y][x] = getattr(colors.fg, joueur.color) + '■' + colors.reset
-    os.system('cls' if os.name == 'nt' else 'clear')
-    afficher_jeu_complet(temp_grille, joueur) # Utilisation de la vue complète ici aussi
+def placement_interactif(grille, piece_rotations, joueur, est_premier_tour, coins_disponibles):
+    piece_index = 0
+    piece = piece_rotations[piece_index]
+    position = [0, 0]  # position initiale
 
-def placement_interactif(grille, rotations, joueur, est_premier, coins_dispo):
-    idx, pos = 0, [0, 0]
     while True:
-        piece = rotations[idx]
-        afficher_grille_interactive(grille, piece, pos, joueur)
-        print(f"\nPosition: {pos[0]+1},{pos[1]+1} | Espace: Tourner | Entrée: Valider | 'q': Retour")
+        afficher_grille_interactive(grille, piece, position, joueur)
+        print(f"\nJoueur {joueur.color}")
+        print("Flèches: Déplacer | Espace: Tourner | Entrée: Valider | 'q': Choisir une autre pièce | 'p': Plus de pièce plaçable")
+
         key = readchar.readkey()
-        if key.lower() == 'q': return "CHANGER"
-        if key.lower() == 'p': return "BLOQUER"
-        if key == readchar.key.UP: pos[1] = max(0, pos[1]-1)
-        elif key == readchar.key.DOWN: pos[1] = min(len(grille)-1, pos[1]+1)
-        elif key == readchar.key.LEFT: pos[0] = max(0, pos[0]-1)
-        elif key == readchar.key.RIGHT: pos[0] = min(len(grille[0])-1, pos[0]+1)
-        elif key == readchar.key.SPACE: idx = (idx + 1) % len(rotations)
+
+        if key.lower() == 'q':
+            return "CHANGER"
+        if key.lower() == 'p':
+            return "BLOQUER"
+
+        if key == readchar.key.UP:
+            position[1] = max(0, position[1] - 1)
+        elif key == readchar.key.DOWN:
+            position[1] = min(len(grille) - 1, position[1] + 1)
+        elif key == readchar.key.LEFT:
+            position[0] = max(0, position[0] - 1)
+        elif key == readchar.key.RIGHT:
+            position[0] = min(len(grille[0]) - 1, position[0] + 1)
+        elif key == readchar.key.SPACE:
+            piece_index = (piece_index + 1) % len(piece_rotations)
+            piece = piece_rotations[piece_index]
         elif key == readchar.key.ENTER:
-            coords = [(pos[0]+dx, pos[1]+dy) for dx, dy in piece]
-            if placement_valide(coords, grille, joueur, est_premier, coins_dispo): return coords
-            print("Placement invalide !"); time.sleep(1)
+            final_coords = [(position[0] + dx, position[1] + dy) for dx, dy in piece]
+            # Vérification que toutes les cases sont libres et dans la grille
+            if placement_valide(final_coords, grille, joueur, est_premier_tour, coins_disponibles):
+                return final_coords
+            else:
+                print("Placement invalide ! Appuyez sur une touche pour recommencer.")
+                readchar.readkey()
+        time.sleep(0.05)  # pause pour limiter la vitesse de lecture des touches
 
 def formater_grille_couleurs(grille_brute):
-    """Transforme les mots 'red'/'blue' en carrés colorés pour l'affichage"""
+    """Transforme les noms de couleurs en carrés colorés (4 couleurs)"""
     nouvelle_grille = [ligne[:] for ligne in grille_brute]
+    mapping = {
+        'red': colors.fg.red,
+        'blue': colors.fg.blue,
+        'green': colors.fg.green,
+        'yellow': colors.fg.yellow
+    }
     for y in range(len(nouvelle_grille)):
         for x in range(len(nouvelle_grille[0])):
-            if nouvelle_grille[y][x] == 'red':
-                nouvelle_grille[y][x] = colors.fg.red + '■' + colors.reset
-            elif nouvelle_grille[y][x] == 'blue':
-                nouvelle_grille[y][x] = colors.fg.blue + '■' + colors.reset
+            val = nouvelle_grille[y][x]
+            if val in mapping:
+                nouvelle_grille[y][x] = mapping[val] + '■' + colors.reset
     return nouvelle_grille
 
 def afficher_jeu_complet(grille, joueur):
+    # 1. On prépare le visuel des pièces à droite
     visuel_droite = generer_visuel_pieces(joueur)
-    lignes_grille = []
-    largeur_grille = len(grille[0])
 
-    entete = "    " + "".join([f"{col:<3}" for col in range(1, largeur_grille + 1)])
+    # 2. On prépare les lignes de la grille à gauche
+    lignes_grille = []
+    largeur = len(grille[0])
+
+    # Entête de la grille (numéros de colonnes)
+    entete = "    " + "".join([f"{col:2} " for col in range(1, largeur + 1)])
     lignes_grille.append(entete)
 
     for i in range(len(grille)):
-        ligne_txt = f"{i + 1:>2}  "
-        for j in range(largeur_grille):
-            cellule = grille[i][j]
-            ligne_txt += f"{cellule}  " if cellule != '_' else "_  "
+        ligne_txt = f"{i + 1:2}  " + "  ".join(grille[i])
         lignes_grille.append(ligne_txt)
 
-    print("\n" + "=" * 120)
+    # 3. Affichage combiné
+    print("\n" + "=" * 80)  # Séparateur visuel
+
+    # On itère sur le maximum de lignes entre les deux colonnes
     nb_lignes = max(len(lignes_grille), len(visuel_droite))
-    
+
     for i in range(nb_lignes):
-        gauche = lignes_grille[i] if i < len(lignes_grille) else ""
-        visible = gauche.replace(colors.reset, "").replace('\033', '').replace('[31m', '').replace('[34m', '').replace('■', 'X')
-        padding = " " * (LARGEUR_COLONNE_GAUCHE - len(visible))
-        
-        separateur = " | "
+        # On prend la ligne de gauche ou du vide si fini
+        gauche = lignes_grille[i] if i < len(lignes_grille) else " " * len(lignes_grille[0])
+        # On ajoute un séparateur central
+        separateur = "  |  "
+        # On prend la ligne de droite ou du vide si fini
         droite = visuel_droite[i] if i < len(visuel_droite) else ""
-        print(f"{gauche}{padding}{separateur}{droite}")
 
-def generer_visuel_pieces(joueur, pieces_par_ligne=7):
-    # Calcul du score : 89 total - carrés restants en main
-    score_actuel = 89 - sum(len(p) for p in joueur.pieces)
-    
-    lignes_finales = [
-        f"--- PIÈCES DISPONIBLES ({joueur.color.upper()}) ---",
-        f"SCORE ACTUEL : {score_actuel} pts",
-        ""
-    ]
+        print(f"{gauche}{separateur}{droite}")
+
+def generer_visuel_pieces(joueur, pieces_par_ligne=8):
+    lignes_finales = [f"--- PIÈCES DISPONIBLES ({joueur.color.upper()}) ---", ""]
     couleur = getattr(colors.fg, joueur.color)
-    LARGEUR_BLOC = 12 
 
+    # On traite les pièces par blocs (ex: de 3 en 3)
     for i in range(0, len(joueur.pieces), pieces_par_ligne):
         groupe = joueur.pieces[i: i + pieces_par_ligne]
-        
-        # Ligne des noms (P1, P2...)
-        ligne_noms = ""
-        for j in range(len(groupe)):
-            nom = f"P{i + j + 1}"
-            ligne_noms += f"{nom:<{LARGEUR_BLOC}}"
-        lignes_finales.append(ligne_noms)
+        indices = range(i + 1, i + len(groupe) + 1)
 
-        # Dessin des formes
+        # 1. On prépare les étiquettes (P1, P2, P3...)
+        etiquettes = ""
+        for idx in indices:
+            etiquettes += f"P{idx:<10}"  # Espace constant entre les noms
+        lignes_finales.append(etiquettes)
+
+        # 2. On dessine les formes du groupe ligne par ligne
+        # On suppose une hauteur max de 5 pour les pièces Blokus
         for y in range(5):
-            ligne_formes = ""
+            ligne_cumulee = ""
             for p in groupe:
-                str_piece = ""
+                # Dessin d'une pièce
+                forme_txt = ""
                 for x in range(5):
                     if (x, y) in p:
-                        str_piece += couleur + "■ " + colors.reset
+                        forme_txt += couleur + "■ " + colors.reset
                     else:
-                        str_piece += "  "
-                ligne_formes += str_piece + "  " 
-            lignes_finales.append(ligne_formes)
-        lignes_finales.append("") 
+                        forme_txt += "  "
+                ligne_cumulee += forme_txt + " "  # Espace entre deux pièces
+            lignes_finales.append(ligne_cumulee)
+
+        lignes_finales.append("")  # Espace entre les rangées
+
     return lignes_finales
-
-
-def calculer_score(joueur):
-    return 89 - sum(len(p) for p in joueur.pieces)
-
-def fin_jeu(j1, j2): return not j1.pieces or not j2.pieces
-def grille_pleine(g): return all(cell != '_' for row in g for cell in row)
-def joueur_suivant(curr, list_j): return list_j[(list_j.index(curr) + 1) % len(list_j)]
