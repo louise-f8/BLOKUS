@@ -1,7 +1,6 @@
 import socket
 import pickle
 
-
 def main_serveur():
     host = '0.0.0.0'
     port = 5556
@@ -10,24 +9,19 @@ def main_serveur():
     server_socket.bind((host, port))
     server_socket.listen(4)
 
-    print("\nPartie terminée. Envoi des résultats...")
-    # Ici, vous pourriez demander aux clients leurs scores ou les calculer si le serveur suivait les pièces.
-    # Pour faire simple avec votre structure actuelle, on informe les clients que c'est la FIN.
-    for conn in clients:
-        try:
-            conn.send(pickle.dumps("FIN_PARTIE"))
-        except:
-            pass
-
     clients = []
     couleurs = ["red", "blue", "green", "yellow"]
     joueurs_en_jeu = [True, True, True, True]
+    
+    print(f"Serveur lancé sur le port {port}. En attente des joueurs...")
 
     try:
-        for i in range(4):
+        # 1. Connexion des 4 joueurs
+        while len(clients) < 4:
             conn, addr = server_socket.accept()
-            print(f"Joueur {i + 1} ({couleurs[i]}) connecté.")
-            conn.send(pickle.dumps(couleurs[i]))
+            idx = len(clients)
+            print(f"Joueur {idx + 1} ({couleurs[idx]}) connecté depuis {addr}")
+            conn.send(pickle.dumps(couleurs[idx])) # Envoi de sa couleur
             clients.append(conn)
 
         grille = [['_'] * 20 for _ in range(20)]
@@ -35,29 +29,12 @@ def main_serveur():
         en_cours = True
 
         while en_cours:
-            # --- 1. COMPTER LES JOUEURS RESTANTS ---
-            nb_restants = joueurs_en_jeu.count(True)
-
-            # Si un seul joueur reste en lice, il a gagné par forfait des autres
-            if nb_restants == 1:
-                index_gagnant = joueurs_en_jeu.index(True)
-                couleur_gagnante = couleurs[index_gagnant]
-                print(f"VICTOIRE PAR SURVIE : {couleur_gagnante} est le dernier à pouvoir jouer !")
-
-                for i, conn in enumerate(clients):
-                    msg = "VICTOIRE" if i == index_gagnant else "DEFAITE"
-                    try:
-                        conn.send(pickle.dumps(msg))
-                    except:
-                        pass
+            # Vérifier s'il reste des joueurs actifs
+            if joueurs_en_jeu.count(True) == 0:
+                print("Plus de joueurs actifs. Fin.")
                 break
 
-            # Si tout le monde est bloqué en même temps (rare)
-            if nb_restants == 0:
-                print("Égalité : tout le monde est bloqué.")
-                break
-
-            # --- 2. PASSER LE TOUR DES JOUEURS BLOQUÉS ---
+            # Passer le tour si le joueur actuel est bloqué
             if not joueurs_en_jeu[tour]:
                 tour = (tour + 1) % 4
                 continue
@@ -65,54 +42,56 @@ def main_serveur():
             current_conn = clients[tour]
             current_color = couleurs[tour]
 
-            # --- 3. DIFFUSION DE L'ÉTAT ---
+            # DIFFUSION de l'état à tous les clients encore connectés
+            etat = {
+                "grille": grille,
+                "actif": False,
+                "couleur_tour": current_color
+            }
+
             for i, conn in enumerate(clients):
                 try:
-                    etat = {
-                        "grille": grille,
-                        "actif": (i == tour),
-                        "couleur_tour": current_color
-                    }
+                    etat["actif"] = (i == tour)
                     conn.send(pickle.dumps(etat))
                 except:
                     joueurs_en_jeu[i] = False
 
-            # --- 4. RÉCEPTION DE L'ACTION ---
+            # RÉCEPTION de l'action du joueur dont c'est le tour
             try:
                 data = current_conn.recv(4096)
                 if not data:
-                    joueurs_en_jeu[tour] = False
-                    tour = (tour + 1) % 4
-                    continue
+                    raise Exception("Déconnexion")
 
                 resultat = pickle.loads(data)
 
-
-                if resultat == "FINI":  # Le joueur a posé TOUTES ses pièces
-                    print(f"FINI : {current_color} a vidé sa main !")
+                if resultat == "FINI":
+                    print(f"VICTOIRE : {current_color} a gagné !")
                     en_cours = False
-                    break
-
                 elif resultat == "BLOQUER":
                     print(f"{current_color} est bloqué.")
                     joueurs_en_jeu[tour] = False
-                    if joueurs_en_jeu.count(True) == 0:
-                        en_cours = False
-                        break
                     tour = (tour + 1) % 4
-
-                elif resultat == "CHANGER":
-                    continue
-
-                else:  # Placement de pièce
+                else: 
+                    # On suppose que 'resultat' est une liste de coordonnées [(x,y), ...]
                     for x, y in resultat:
                         grille[y][x] = current_color
                     tour = (tour + 1) % 4
 
-            except:
+            except Exception as e:
+                print(f"Erreur avec le joueur {current_color}: {e}")
                 joueurs_en_jeu[tour] = False
                 tour = (tour + 1) % 4
 
     finally:
-        for c in clients: c.close()
+        # Information de fin et fermeture
+        print("Fermeture du serveur...")
+        for c in clients:
+            try:
+                c.send(pickle.dumps("FIN_PARTIE"))
+                c.close()
+            except:
+                pass
         server_socket.close()
+
+if __name__ == "__main__":
+    main_serveur()
