@@ -272,7 +272,7 @@ def generer_visuel_pieces(joueur, pieces_par_ligne=8):
         # 1. On prépare les étiquettes (P1, P2, P3...)
         etiquettes = ""
         for idx in indices:
-            etiquettes += f"P{idx:<12}"  # Espace constant entre les noms
+            etiquettes += f"P{idx:<10}"  # Espace constant entre les noms
         lignes_finales.append(etiquettes)
 
         # 2. On dessine les formes du groupe ligne par ligne
@@ -287,7 +287,7 @@ def generer_visuel_pieces(joueur, pieces_par_ligne=8):
                         forme_txt += couleur + "■ " + colors.reset
                     else:
                         forme_txt += "  "
-                ligne_cumulee += forme_txt + "  "  # Espace entre deux pièces
+                ligne_cumulee += forme_txt + " "  # Espace entre deux pièces
             lignes_finales.append(ligne_cumulee)
 
         lignes_finales.append("")  # Espace entre les rangées
